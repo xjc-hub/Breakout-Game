@@ -1,38 +1,26 @@
-#ifndef BALL_H
-#define BALL_H
+﻿#pragma once
+
 #include "raylib.h"
 
 class Ball {
 private:
     Vector2 position;
-    Vector2 speed;
+    Vector2 speed;  // 注意：这里应该是 speed，不是 velocity
     float radius;
-    float gravity;
-    float maxSpeed;
-    float bounceForce;
     bool launched;
-    float launchCooldown;
-    
+
 public:
     Ball(Vector2 pos, Vector2 sp, float r);
     
     void Move();
-    void Draw();
-    void ApplyGravity();
     void BounceEdge(int screenWidth, int screenHeight);
     void BouncePaddle(Rectangle paddleRect);
-    bool CheckBrickCollision(Rectangle brickRect);
-    
-    void Launch(float paddleX, float paddleWidth);
+    void BounceBrick(Rectangle brickRect);
+    void Launch(float paddleX, float paddleY);
     void ResetToPaddle(float paddleX, float paddleY);
-    void Reset(Vector2 pos, Vector2 sp);
-    void AddBounceForce(float force);
+    void Draw();
     
-    Vector2 GetPosition() { return position; }
-    float GetRadius() { return radius; }
-    Vector2 GetSpeed() { return speed; }
-    void SetSpeed(Vector2 sp) { speed = sp; }
-    bool IsLaunched() { return launched; }
+    Vector2 GetPosition() const { return position; }
+    float GetRadius() const { return radius; }
+    bool IsLaunched() const { return launched; }
 };
-
-#endif

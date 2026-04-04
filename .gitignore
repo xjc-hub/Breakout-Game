@@ -1,17 +1,38 @@
 ﻿# 编译输出
-build/
 *.exe
 *.o
 *.obj
+*.out
+*.ilk
+*.pdb
 
-# IDE文件
+# 构建目录
+build/
+Debug/
+Release/
+x64/
+x86/
+
+# IDE 文件
 .vscode/
-*.code-workspace
+.idea/
+*.sln
+*.vcxproj*
+*.user
+*.suo
 
 # 系统文件
 .DS_Store
 Thumbs.db
 
+# 备份文件
+*.backup
+*.bak
+*.old
+
 # 临时文件
 *.tmp
-*.log
+*.temp
+
+# 测试输出
+tests/*.exe

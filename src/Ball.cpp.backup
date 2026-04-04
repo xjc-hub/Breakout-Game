@@ -1,0 +1,170 @@
+﻿#include "Ball.h"
+#include <cmath>
+#include <algorithm>
+#include <cstdlib>
+#include <ctime>
+#include "raylib.h"  // 纭繚鍖呭惈raylib澶存枃浠?
+Ball::Ball(Vector2 pos, Vector2 sp, float r) {
+    position = pos;
+    speed = sp;
+    radius = r;
+    gravity = 0.08f;
+    maxSpeed = 15.0f;
+    bounceForce = 0.5f;
+    launched = false;
+    launchCooldown = 0.0f;
+    
+    static bool seeded = false;
+    if (!seeded) {
+        srand((unsigned int)time(nullptr));
+        seeded = true;
+    }
+}
+
+void Ball::Move() {
+    if (!launched) return;
+    position.x += speed.x;
+    position.y += speed.y;
+}
+
+void Ball::Draw() {
+    DrawCircleGradient((int)position.x, (int)position.y, radius + 3, Fade(ORANGE, 0.3f), RED);
+    DrawCircleV(position, radius, RED);
+    
+    if (launched) {
+        Vector2 endPos = { position.x + speed.x * 2, position.y + speed.y * 2 };
+        DrawLineEx(position, endPos, 2, YELLOW);
+    } else {
+        if ((int)(GetTime() * 2) % 2 == 0) {
+            DrawText("PRESS SPACE", (int)position.x - 55, (int)position.y - 30, 16, YELLOW);
+        }
+    }
+}
+
+void Ball::Launch(float paddleX, float paddleWidth) {
+    if (launched) return;
+    
+    float angle = (rand() % 61 + 60) * 3.14159f / 180.0f;
+    if (rand() % 2 == 0) angle = 3.14159f - angle;
+    
+    float baseSpeed = 8.0f;
+    float speedVariation = (rand() % 5 - 2) * 0.5f;
+    float launchSpeed = baseSpeed + speedVariation;
+    
+    speed.x = launchSpeed * std::cos(angle);
+    speed.y = -launchSpeed * std::abs(std::sin(angle));
+    
+    launched = true;
+    position.x = paddleX;
+    position.y = 550 - radius - 5;
+}
+
+void Ball::ResetToPaddle(float paddleX, float paddleY) {
+    position.x = paddleX;
+    position.y = paddleY - radius - 5;
+    speed = {0, 0};
+    launched = false;
+}
+
+void Ball::Reset(Vector2 pos, Vector2 sp) {
+    position = pos;
+    speed = sp;
+}
+
+void Ball::AddBounceForce(float force) {
+    speed.y -= force;
+}
+
+void Ball::ApplyGravity() {
+    if (!launched) return;
+    speed.y += gravity;
+    
+    float currentSpeed = std::sqrt(speed.x * speed.x + speed.y * speed.y);
+    if (currentSpeed > maxSpeed) {
+        speed.x = (speed.x / currentSpeed) * maxSpeed;
+        speed.y = (speed.y / currentSpeed) * maxSpeed;
+    }
+}
+
+void Ball::BounceEdge(int screenWidth, int screenHeight) {
+    if (!launched) return;
+    
+    if (position.x - radius <= 5) {
+        position.x = radius + 5;
+        speed.x = std::abs(speed.x);
+    }
+    if (position.x + radius >= screenWidth - 5) {
+        position.x = screenWidth - radius - 5;
+        speed.x = -std::abs(speed.x);
+    }
+    if (position.y - radius <= 5) {
+        position.y = radius + 5;
+        speed.y = std::abs(speed.y);
+        speed.y += bounceForce;
+    }
+}
+
+void Ball::BouncePaddle(Rectangle paddleRect) {
+    if (!launched) return;
+    
+    // 浣跨敤Raylib鐨勭鎾炴娴嬪嚱鏁?    if (CheckCollisionCircleRec(position, radius, paddleRect)) {
+        // 璁＄畻鍑讳腑鐐圭殑鐩稿浣嶇疆锛?1鍒?涔嬮棿锛?        float hitPoint = (position.x - (paddleRect.x + paddleRect.width / 2.0f)) / (paddleRect.width / 2.0f);
+        hitPoint = std::clamp(hitPoint, -1.0f, 1.0f);
+        
+        // 璁＄畻鍙嶅脊瑙掑害
+        float speedMagnitude = std::sqrt(speed.x * speed.x + speed.y * speed.y);
+        speedMagnitude = std::max(speedMagnitude + bounceForce * 2, 7.0f);
+        
+        float angle = 90.0f - hitPoint * 50.0f;
+        float angleRad = angle * 3.14159f / 180.0f;
+        
+        speed.x = speedMagnitude * std::cos(angleRad);
+        speed.y = -speedMagnitude * std::abs(std::sin(angleRad));
+        position.y = paddleRect.y - radius;
+    }
+}
+
+
+bool Ball::CheckBrickCollision(Rectangle brickRect) {
+    if (!launched) return false;
+    
+    // 浣跨敤Raylib鐨勭鎾炴娴嬪嚱鏁?    if (CheckCollisionCircleRec(position, radius, brickRect)) {
+        // 璁＄畻浠庣悆蹇冨埌鐭╁舰鍚勮竟鐨勮窛绂?        float distLeft = position.x - brickRect.x;
+        float distRight = brickRect.x + brickRect.width - position.x;
+        float distTop = position.y - brickRect.y;
+        float distBottom = brickRect.y + brickRect.height - position.y;
+        
+        // 鎵惧埌鏈€灏忚窛绂荤殑鏂瑰悜
+        float minDistX = std::min(distLeft, distRight);
+        float minDistY = std::min(distTop, distBottom);
+        
+        if (minDistX < minDistY) {
+            // 姘村钩纰版挒
+            speed.x *= -1;
+            position.x = (distLeft < distRight) ? brickRect.x - radius : brickRect.x + brickRect.width + radius;
+        } else {
+            // 鍨傜洿纰版挒
+            speed.y *= -1;
+            if (distTop > distBottom) speed.y -= bounceForce; // 浠庝笅鏂瑰嚮涓椂澧炲姞鍙嶅脊鍔?            position.y = (distTop < distBottom) ? brickRect.y - radius : brickRect.y + brickRect.height + radius;
+        }
+        return true;
+    }
+    return false;
+}
+
+
+
+void Ball::BounceBrick(Rectangle brickRect) {
+    // 简单地从砖块反弹（与挡板反弹类似）
+    velocity.y = -velocity.y;
+    
+    // 稍微调整X方向速度，增加随机性
+    velocity.x += (GetRandomValue(-10, 10) / 100.0f);
+    
+    // 限制最大速度
+    float maxSpeed = ConfigManager::GetFloat("ballMaxSpeed", 15.0f);
+    if (velocity.x > maxSpeed) velocity.x = maxSpeed;
+    if (velocity.x < -maxSpeed) velocity.x = -maxSpeed;
+    if (velocity.y > maxSpeed) velocity.y = maxSpeed;
+    if (velocity.y < -maxSpeed) velocity.y = -maxSpeed;
+}

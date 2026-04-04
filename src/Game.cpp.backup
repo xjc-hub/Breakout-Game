@@ -1,0 +1,328 @@
+﻿#include "Game.h"
+#include "raylib.h"
+#include <iostream>
+
+Game::Game() 
+    : score(0), lives(3), winCount(0), gameOver(false), 
+      paused(false), victory(false), showLeaderboard(false), 
+      gameTime(0.0f) {
+    // 加载配置
+    ConfigManager::LoadConfig("game.config");
+    
+    // 初始化字体
+    FontManager::GetInstance().LoadChineseFont();
+    
+    // 初始化排行榜
+    leaderboard = Leaderboard(ConfigManager::GetString("scoreFileName", "scores.txt").c_str());
+}
+
+void Game::Initialize() {
+    // 初始化球
+    ball = Ball(
+        {ConfigManager::GetFloat("ballStartX", 400.0f), 
+         ConfigManager::GetFloat("ballStartY", 530.0f)},
+        {0.0f, 0.0f},
+        ConfigManager::GetFloat("ballRadius", 10.0f)
+    );
+    
+    // 初始化挡板
+    paddle = Paddle(
+        ConfigManager::GetFloat("paddleStartX", 340.0f),
+        ConfigManager::GetFloat("paddleStartY", 550.0f),
+        ConfigManager::GetFloat("paddleWidth", 120.0f),
+        ConfigManager::GetFloat("paddleHeight", 15.0f)
+    );
+    
+    // 初始化砖块
+    bricks.clear();
+    for (int row = 0; row < ConfigManager::GetInt("brickRows", 5); row++) {
+        for (int col = 0; col < ConfigManager::GetInt("brickCols", 8); col++) {
+            bricks.emplace_back(
+                ConfigManager::GetInt("brickStartX", 50) + col * ConfigManager::GetInt("brickSpacingX", 95),
+                ConfigManager::GetInt("brickStartY", 80) + row * ConfigManager::GetInt("brickSpacingY", 35),
+                ConfigManager::GetInt("brickWidth", 85),
+                ConfigManager::GetInt("brickHeight", 25),
+                brickColors[row]
+            );
+        }
+    }
+}
+
+void Game::Update() {
+    if (gameOver || paused || showLeaderboard) return;
+    
+    gameTime += GetFrameTime();
+    
+    // 更新球的位置
+    if (ball.IsLaunched()) {
+        ball.Move();
+        ball.BounceEdge(ConfigManager::GetInt("screenWidth", 800), 
+                       ConfigManager::GetInt("screenHeight", 600));
+    } else {
+        ball.ResetToPaddle(paddle.GetRect().x + paddle.GetRect().width / 2, 
+                          paddle.GetRect().y);
+    }
+    
+    // 检查球是否落地
+    if (ball.GetPo
+# 创建 Game.cpp
+@"
+#include "Game.h"
+#include "raylib.h"
+#include <iostream>
+
+Game::Game() 
+    : score(0), lives(3), winCount(0), gameOver(false), 
+      paused(false), victory(false), showLeaderboard(false), 
+      gameTime(0.0f) {
+    // 加载配置
+    ConfigManager::LoadConfig("game.config");
+    
+    // 初始化字体
+    FontManager::GetInstance().LoadChineseFont();
+    
+    // 初始化排行榜
+    leaderboard = Leaderboard(ConfigManager::GetString("scoreFileName", "scores.txt").c_str());
+}
+
+void Game::Initialize() {
+    // 初始化球
+    ball = Ball(
+        {ConfigManager::GetFloat("ballStartX", 400.0f), 
+         ConfigManager::GetFloat("ballStartY", 530.0f)},
+        {0.0f, 0.0f},
+        ConfigManager::GetFloat("ballRadius", 10.0f)
+    );
+    
+    // 初始化挡板
+    paddle = Paddle(
+        ConfigManager::GetFloat("paddleStartX", 340.0f),
+        ConfigManager::GetFloat("paddleStartY", 550.0f),
+        ConfigManager::GetFloat("paddleWidth", 120.0f),
+        ConfigManager::GetFloat("paddleHeight", 15.0f)
+    );
+    
+    // 初始化砖块
+    bricks.clear();
+    for (int row = 0; row < ConfigManager::GetInt("brickRows", 5); row++) {
+        for (int col = 0; col < ConfigManager::GetInt("brickCols", 8); col++) {
+            bricks.emplace_back(
+                ConfigManager::GetInt("brickStartX", 50) + col * ConfigManager::GetInt("brickSpacingX", 95),
+                ConfigManager::GetInt("brickStartY", 80) + row * ConfigManager::GetInt("brickSpacingY", 35),
+                ConfigManager::GetInt("brickWidth", 85),
+                ConfigManager::GetInt("brickHeight", 25),
+                brickColors[row]
+            );
+        }
+    }
+}
+
+void Game::Update() {
+    if (gameOver || paused || showLeaderboard) return;
+    
+    gameTime += GetFrameTime();
+    
+    // 更新球的位置
+    if (ball.IsLaunched()) {
+        ball.Move();
+        ball.BounceEdge(ConfigManager::GetInt("screenWidth", 800), 
+                       ConfigManager::GetInt("screenHeight", 600));
+    } else {
+        ball.ResetToPaddle(paddle.GetRect().x + paddle.GetRect().width / 2, 
+                          paddle.GetRect().y);
+    }
+    
+    // 检查球是否落地
+    if (ball.GetPosition().y > ConfigManager::GetInt("screenHeight", 600)) {
+        LoseLife();
+    }
+    
+    // 检查碰撞
+    CheckCollisions();
+    
+    // 检查胜利条件
+    if (winCount >= ConfigManager::GetInt("brickRows", 5) * ConfigManager::GetInt("brickCols", 8)) {
+        victory = true;
+        gameOver = true;
+    }
+}
+
+void Game::Draw() {
+    // 绘制背景
+    ClearBackground(BLACK);
+    
+    // 绘制砖块
+    for (auto& brick : bricks) {
+        if (brick.IsActive()) {
+            brick.Draw();
+        }
+    }
+    
+    // 绘制球和挡板
+    ball.Draw();
+    paddle.Draw();
+    
+    // 绘制UI
+    FontManager& fontMgr = FontManager::GetInstance();
+    
+    // 绘制分数和生命
+    fontMgr.DrawChineseText(("分数: " + std::to_string(score)).c_str(), 10, 10, 20, WHITE);
+    fontMgr.DrawChineseText(("生命: " + std::to_string(lives)).c_str(), 10, 40, 20, WHITE);
+    fontMgr.DrawChineseText(("时间: " + std::to_string((int)gameTime) + "秒").c_str(), 10, 70, 20, WHITE);
+    
+    // 绘制暂停状态
+    if (paused) {
+        fontMgr.DrawChineseTextCentered("暂停", 250, 48, YELLOW);
+        fontMgr.DrawChineseTextCentered("按P继续", 320, 24, WHITE);
+    }
+    
+    // 绘制游戏结束状态
+    if (gameOver) {
+        if (victory) {
+            fontMgr.DrawChineseTextCentered("胜利！", 250, 48, GREEN);
+            fontMgr.DrawChineseTextCentered(("最终分数: " + std::to_string(score)).c_str(), 320, 36, WHITE);
+        } else {
+            fontMgr.DrawChineseTextCentered("游戏结束", 250, 48, RED);
+        }
+        fontMgr.DrawChineseTextCentered("按R重新开始", 370, 24, WHITE);
+    }
+    
+    // 绘制排行榜
+    if (showLeaderboard) {
+        // 绘制半透明背景
+        DrawRectangle(0, 0, ConfigManager::GetInt("screenWidth", 800), 
+                     ConfigManager::GetInt("screenHeight", 600), {0, 0, 0, 200});
+        
+        fontMgr.DrawChineseTextCentered("排行榜", 100, 48, YELLOW);
+        
+        // 绘制排行榜条目
+        ScoreEntry entry;
+        for (int i = 1; i <= leaderboard.GetCount(); i++) {
+            if (leaderboard.GetEntry(i, entry)) {
+                std::string text = std::to_string(i) + ". " + entry.name + " - " + std::to_string(entry.score);
+                fontMgr.DrawChineseTextCentered(text.c_str(), 150 + i * 40, 24, WHITE);
+            }
+        }
+        
+        fontMgr.DrawChineseTextCentered("按L返回游戏", 450, 24, WHITE);
+    }
+    
+    // 绘制提示
+    if (!ball.IsLaunched() && !gameOver && !paused && !showLeaderboard) {
+        fontMgr.DrawChineseTextCentered("按空格发射", 450, 24, WHITE);
+    }
+}
+
+void Game::ProcessInput() {
+    // 处理挡板移动
+    float currentSpeed = (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) 
+        ? ConfigManager::GetFloat("boostSpeed", 28.0f) 
+        : ConfigManager::GetFloat("normalSpeed", 18.0f);
+    
+    if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A)) {
+        paddle.MoveLeft(currentSpeed);
+    }
+    if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) {
+        paddle.MoveRight(currentSpeed);
+    }
+    
+    // 处理发射球
+    if (IsKeyPressed(KEY_SPACE) && !ball.IsLaunched() && !gameOver && !paused && !showLeaderboard) {
+        ball.Launch(paddle.GetRect().x + paddle.GetRect().width / 2, paddle.GetRect().y);
+    }
+    
+    // 处理暂停
+    if (IsKeyPressed(KEY_P)) {
+        TogglePause();
+    }
+    
+    // 处理重置
+    if (IsKeyPressed(KEY_R)) {
+        Reset();
+    }
+    
+    // 处理排行榜显示
+    if (IsKeyPressed(KEY_L)) {
+        ToggleLeaderboard();
+    }
+}
+
+void Game::CheckCollisions() {
+    // 球与挡板碰撞
+    if (CheckCollisionCircleRec(ball.GetPosition(), ball.GetRadius(), paddle.GetRect())) {
+        ball.BouncePaddle(paddle.GetRect());
+    }
+    
+    // 球与砖块碰撞
+    for (auto& brick : bricks) {
+        if (brick.IsActive() && CheckCollisionCircleRec(ball.GetPosition(), ball.GetRadius(), brick.GetRect())) {
+            brick.SetActive(false);
+            ball.BounceBrick(brick.GetRect());
+            AddScore(ConfigManager::GetInt("baseScorePerBrick", 10));
+            winCount++;
+            break; // 一次只处理一个碰撞
+        }
+    }
+}
+
+void Game::AddScore(int baseScore) {
+    score += CalculateScore(baseScore, gameTime);
+}
+
+void Game::LoseLife() {
+    lives--;
+    score -= ConfigManager::GetInt("lifePenalty", 50);
+    ball.ResetToPaddle(paddle.GetRect().x + paddle.GetRect().width / 2, paddle.GetRect().y);
+    
+    if (lives <= 0) {
+        gameOver = true;
+        if (leaderboard.CanEnter(score)) {
+            // 这里可以添加输入玩家名的逻辑
+            leaderboard.AddScore("Player", score);
+        }
+    }
+}
+
+void Game::Reset() {
+    score = 0;
+    lives = ConfigManager::GetInt("initialLives", 3);
+    winCount = 0;
+    gameOver = false;
+    paused = false;
+    victory = false;
+    showLeaderboard = false;
+    gameTime = 0.0f;
+    
+    bricks.clear();
+    for (int row = 0; row < ConfigManager::GetInt("brickRows", 5); row++) {
+        for (int col = 0; col < ConfigManager::GetInt("brickCols", 8); col++) {
+            bricks.emplace_back(
+                ConfigManager::GetInt("brickStartX", 50) + col * ConfigManager::GetInt("brickSpacingX", 95),
+                ConfigManager::GetInt("brickStartY", 80) + row * ConfigManager::GetInt("brickSpacingY", 35),
+                ConfigManager::GetInt("brickWidth", 85),
+                ConfigManager::GetInt("brickHeight", 25),
+                brickColors[row]
+            );
+        }
+    }
+    
+    ball.ResetToPaddle(paddle.GetRect().x + paddle.GetRect().width / 2, paddle.GetRect().y);
+}
+
+void Game::TogglePause() {
+    if (!gameOver && !showLeaderboard) {
+        paused = !paused;
+    }
+}
+
+void Game::ToggleLeaderboard() {
+    if (!gameOver && !paused) {
+        showLeaderboard = !showLeaderboard;
+    }
+}
+
+int Game::CalculateScore(int baseScore, float time) {
+    float multiplier = ConfigManager::GetFloat("scoreMultiplier", 5.0f);
+    float penalty = ConfigManager::GetFloat("timePenalty", 0.05f);
+    return static_cast<int>(baseScore * multiplier - time * penalty);
+}
